@@ -4,7 +4,7 @@
 # Author:       Jaroslaw Bulat (kwant@agh.edu.pl, kwanty@gmail.com)
 # Created:      30.01.2021
 # License:      GPLv3
-# File:         Connectivity.py
+# File:         connectivity.py
 # TODO: WIFI/BT connectivity
 # TODO: test decode_frame() Error package
 # TODO: better conversion byte->int than b'\n'[0]
@@ -38,7 +38,7 @@ class Connectivity:
         elif self.connection == 'UART':
             # TODO manage SerialException and add auto port detection (eg. typical ttyUSB0, ttyUSB1, ttyACM0, etc...)
             self.serial = serial.Serial(
-                port='/dev/'+parameters['port'],
+                port=parameters['port'],
                 baudrate=parameters['speed'],
                 parity=serial.PARITY_NONE,
                 stopbits=serial.STOPBITS_ONE,
@@ -143,7 +143,7 @@ class Connectivity:
             byte_frame += struct.pack('<hh', payload['left'], payload['right'])
             byte_frame += self.crc8(byte_frame)     # add crc
             byte_frame += b'\n\r'
-            print('byte frame: {}\n'.format(byte_frame))
+            # print('byte frame: {}\n'.format(byte_frame))
             self.serial.write(byte_frame)
         elif payload['type'] == 'MPUrate':
             byte_frame = b'\xA7'

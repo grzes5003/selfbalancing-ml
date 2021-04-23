@@ -9,11 +9,11 @@
 #   -
 
 import sys
-from getkey import getkey, keys
-from Connectivity import Connectivity
+# from getkey import getkey, keys
+from util.connectivity import Connectivity
 
 # connectivity setup
-uart_port = 'ttyUSB0'               # in case of UART connectivity
+uart_port = 'COM3'               # in case of UART connectivity
 uart_speed = 115200                 # serial port speed
 wifi_local_ip = '192.168.4.1'       # host (this) IP
 wifi_robot_ip = '192.158.4.2'       # remote (robot) IP
@@ -37,6 +37,7 @@ def main_loop(connectivity):
         # print MPU readings
         msg = connectivity.read()
         if msg['type'] is None:     # ignore None msg
+            # print("None")
             pass
         elif msg['type'] == 'MPUdata':
             print('acc: {: >5.2f} {: >5.2f} {: >5.2f}, gyro:  {: >5.2f} {: >5.2f} {: >5.2f}'
