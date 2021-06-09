@@ -3,6 +3,7 @@ import time
 from unittest import TestCase
 from unittest.mock import patch, MagicMock
 from ml.source import RobotInterface, RobotModel
+from ml.source.model import ML_Model
 from util.connectivity import Connectivity
 import numpy as np
 from datetime import datetime
@@ -14,8 +15,8 @@ import sys
 class TestRobotInterface(TestCase):
 
     @patch('serial.Serial', autospec=True)
-    @patch.object(Connectivity, 'write', MagicMock(return_value=8.1))
-    @patch.object(RobotInterface, 'getState', MagicMock(return_value=8.1))
+    @patch.object(Connectivity, 'write', MagicMock(return_value=-1.45))
+    @patch.object(RobotInterface, 'getState', MagicMock(return_value=-1.45))
     @patch.object(RobotInterface, '_update', MagicMock(return_value=None))
     def test_basic(self, mock_serial):
         env = RobotModel()
@@ -26,12 +27,25 @@ class TestRobotInterface(TestCase):
             score = 0
             while not env.done:
                 time_step = env.step(np.random.randint(5, size=1))
+                print(time_step)
                 score += time_step.reward
             print('Episode:{} Score:{};'.format(episode, score))
-            self.assertEqual(score, 20)
+            self.assertEqual(score, 50)
         env.close_()
 
-    def test_basic_real(self):
+    @patch('serial.Serial', autospec=True)
+    @patch.object(Connectivity, 'write', MagicMock(return_value=-1.45))
+    @patch.object(RobotInterface, 'getState', MagicMock(return_value=-1.45))
+    @patch.object(RobotInterface, '_update', MagicMock(return_value=None))
+    def test_model_fit(self, mock_model):
+        env = RobotModel()
+        ml_model = ML_Model(env.observation_spec().shape,
+                            env.action_spec().num_values)
+        ml_model.fit(env, nb_steps=50)
+        # ml_model.validate(env)
+        env.close_()
+
+    def test_write_real(self):
         env = RobotModel()
         episodes = 5
         for episode in range(1, episodes + 1):

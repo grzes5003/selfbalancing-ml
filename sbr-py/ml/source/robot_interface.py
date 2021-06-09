@@ -6,12 +6,12 @@ import numpy as np
 # connectivity setup
 from util.connectivity import Connectivity
 
-uart_port = 'COM3'               # in case of UART connectivity
-uart_speed = 115200                 # serial port speed
-wifi_local_ip = '192.168.4.1'       # host (this) IP
-wifi_robot_ip = '192.158.4.2'       # remote (robot) IP
-wifi_local_port = '1234'            # host (this) port
-wifi_robot_port = '1235'            # remote (robot) port
+uart_port = 'COM3'  # in case of UART connectivity
+uart_speed = 115200  # serial port speed
+wifi_local_ip = '192.168.4.1'  # host (this) IP
+wifi_robot_ip = '192.158.4.2'  # remote (robot) IP
+wifi_local_port = '1234'  # host (this) port
+wifi_robot_port = '1235'  # remote (robot) port
 
 
 class ConnectionType(Enum):
@@ -19,7 +19,7 @@ class ConnectionType(Enum):
     WIFI = 2
 
 
-VALUES = {0: -250, 1: -128, 2: 0, 3: 128, 4: 250}
+VALUES = {0: -210, 1: -32, 2: 0, 3: 32, 4: 210}
 
 
 class RobotInterface:
@@ -28,7 +28,10 @@ class RobotInterface:
         connectivity = 'UART'
         self._con = Connectivity(connectivity, parameters)
         self._con.write({'type': 'MPUrate', 'rate': 100000})
-        self.ZERO = -1.80
+
+        self.RAW_ZERO = -1.45
+        self.RAW_MIN_RANGE = -12
+        self.RAW_MAX_RANGE = 8
 
         self._last_value = None
         self._stop_flag = False
@@ -43,7 +46,8 @@ class RobotInterface:
             if msg['type'] == 'MPUdata':
                 # print("------ {}".format(msg['acc_y']))
                 logging.debug('acc: {: >5.2f} {: >5.2f} {: >5.2f}, gyro:  {: >5.2f} {: >5.2f} {: >5.2f}'
-                      .format(msg['acc_x'], msg['acc_y'], msg['acc_z'], msg['gyro_x'], msg['gyro_y'], msg['gyro_z']))
+                              .format(msg['acc_x'], msg['acc_y'], msg['acc_z'], msg['gyro_x'], msg['gyro_y'],
+                                      msg['gyro_z']))
                 with self._lock:
                     self._last_value = msg['acc_y']
 
