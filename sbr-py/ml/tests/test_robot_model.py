@@ -3,6 +3,7 @@ import time
 from unittest import TestCase
 from unittest.mock import patch, MagicMock
 from ml.source import RobotInterface, RobotModel
+from ml.source.QModel import QModel
 from ml.source.model import ML_Model
 from util.connectivity import Connectivity
 import numpy as np
@@ -43,6 +44,38 @@ class TestRobotInterface(TestCase):
                             env.action_spec().num_values, env)
         ml_model.fit(env, nb_steps=50)
         # ml_model.validate(env)
+        env.close_()
+
+    @patch('serial.Serial', autospec=True)
+    @patch.object(Connectivity, 'write', MagicMock(return_value=-1.45))
+    @patch.object(RobotInterface, 'getState', MagicMock(return_value=-1.46))        # <-8, 1.5, 12> ->  <0, 0.52, 1>
+    @patch.object(RobotInterface, '_update', MagicMock(return_value=None))
+    def test_model_qlearn(self, mock_model):
+        env = RobotModel()
+        ml_model = QModel(12, 5)
+
+        n_episodes = 5
+        for e in range(n_episodes):
+            print("--------------------------")
+            current_state, env.done = 6, False
+
+            while not env.done:
+                action = ml_model.policy(current_state)
+
+                if np.random.random() < ml_model.exploration_rate(e):
+                    action = 2  # TODO random
+
+                obs, reward, done, _ = env.step(action)
+                new_state = obs
+
+                # Update Q-Table
+                lr = ml_model.learning_rate(e)
+                learnt_value = ml_model.new_q_value(reward, new_state)
+                old_value = ml_model.q_table[current_state][action]
+                ml_model.q_table[current_state][action] = (1 - lr) * old_value + lr * learnt_value
+
+                current_state = new_state
+        print(ml_model.q_table)
         env.close_()
 
     def test_write_real(self):
