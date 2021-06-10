@@ -25,7 +25,7 @@ class RobotModel(py_environment.PyEnvironment):
         self._robot = RobotInterface()
         self._action_spec = array_spec.BoundedArraySpec(shape=(), dtype=np.int8, minimum=0, maximum=4,
                                                         name='action')
-        self._observation_spec = array_spec.BoundedArraySpec(shape=(1,), dtype=np.float32, minimum=0.0, maximum=1.0,
+        self._observation_spec = array_spec.BoundedArraySpec(shape=(1, 1), dtype=np.float16, minimum=0.0, maximum=1.0,
                                                              name='observation')
         time.sleep(0.5)
         self._episode_timer = time.time()
@@ -66,21 +66,21 @@ class RobotModel(py_environment.PyEnvironment):
         if self._episode_timer - self._start_time >= self._episode_time_limit \
                 or abs(self._state) > swing_tolerance_limit:
             self.done = True
-            return ts.termination(np.array([self._state], dtype=np.float32), reward=0.0)
+            return ts.termination(np.array([self._state, 0.1], dtype=np.float16), reward=0.0)
 
         print("setState: {}".format(action))
-        self._robot.setState(action)
+        self._robot.setState(np.ndarray([action], np.int8))
         time.sleep(self._sleep_interval)
 
         # TODO change rewards scheme
         if self._zero + self._tolerance >= self._state >= self._zero - self._tolerance:
-            return ts.transition(np.array([self._state], dtype=np.float32), reward=1.0)
+            return ts.transition(np.array([self._state, 0.13], dtype=np.float16), reward=1.0)
         else:
-            return ts.transition(np.array([self._state], dtype=np.float32), reward=-1.0)
+            return ts.transition(np.array([self._state, 0.1], dtype=np.float16), reward=-1.0)
 
     def _reset(self) -> ts.TimeStep:
         print("{} _reset call".format(datetime.now()))
-        self._robot.setState(np.ndarray([2]))
+        self._robot.setState(np.ndarray([2], np.int8))
         # self._state = self._robot.ZERO
         _timer = time.time()
         while True:
@@ -94,7 +94,8 @@ class RobotModel(py_environment.PyEnvironment):
                 print("{} _reset done".format(datetime.now()))
                 break
         self._start_time = time.time()
-        return ts.restart(np.array([self._state], dtype=np.int8))
+        print("{} in _reset {}".format(datetime.now(), np.array([self._state], dtype=np.float16)))
+        return ts.restart(np.array([self._state, 0.1], dtype=np.float16))
 
     def close_(self):
         self._robot.stop()

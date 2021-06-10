@@ -35,12 +35,12 @@ class TestRobotInterface(TestCase):
 
     @patch('serial.Serial', autospec=True)
     @patch.object(Connectivity, 'write', MagicMock(return_value=-1.45))
-    @patch.object(RobotInterface, 'getState', MagicMock(return_value=-1.45))
+    @patch.object(RobotInterface, 'getState', MagicMock(return_value=-1.46))        # <-8, 1.5, 12> ->  <0, 0.52, 1>
     @patch.object(RobotInterface, '_update', MagicMock(return_value=None))
     def test_model_fit(self, mock_model):
         env = RobotModel()
         ml_model = ML_Model(env.observation_spec().shape,
-                            env.action_spec().num_values)
+                            env.action_spec().num_values, env)
         ml_model.fit(env, nb_steps=50)
         # ml_model.validate(env)
         env.close_()
