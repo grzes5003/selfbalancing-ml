@@ -20,6 +20,7 @@ class ConnectionType(Enum):
 
 
 VALUES = {0: -210, 1: -32, 2: 0, 3: 32, 4: 210}
+VALUES_RANGE = 5
 
 
 class RobotInterface:
@@ -49,7 +50,7 @@ class RobotInterface:
                               .format(msg['acc_x'], msg['acc_y'], msg['acc_z'], msg['gyro_x'], msg['gyro_y'],
                                       msg['gyro_z']))
                 with self._lock:
-                    self._last_value = msg['acc_y']
+                    self._last_value = (msg['acc_y'], msg['gyro_x'])
 
     def getState(self):
         with self._lock:
