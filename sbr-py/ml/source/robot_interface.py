@@ -19,7 +19,7 @@ class ConnectionType(Enum):
     WIFI = 2
 
 
-VALUES = {0: -210, 1: -32, 2: 0, 3: 32, 4: 210}
+VALUES = {0: -150, 1: -32, 2: 0, 3: 32, 4: 150}
 VALUES_RANGE = 5
 
 

@@ -1,12 +1,11 @@
 import math
-
 import numpy as np
 
 
 class QModel:
     def __init__(self, n_bins, action_space):
         self.q_table = np.zeros(n_bins + (action_space,))
-        print(f'q_table shape {self.q_table.shape}')
+        print(f'q_table shape {self.q_table.shape}')        # shape = (60, 6, 5)
 
     def policy(self, state: tuple):
         """Choosing action based on epsilon-greedy policy"""
@@ -18,12 +17,15 @@ class QModel:
         learned_value = reward + discount_factor * future_optimal_value
         return learned_value
 
+    def set_q_table(self, q_table: np.ndarray):
+        self.q_table = q_table
+
     @staticmethod
     def learning_rate(n: int, min_rate=0.01) -> float:
         """Decaying learning rate"""
-        return max(min_rate, min(1.0, 1.0 - math.log10((n + 1) / 5)))
+        return max(min_rate, min(1.0, 1.0 - math.log10((n + 1) / 6)))
 
     @staticmethod
     def exploration_rate(n: int, min_rate=0.1) -> float:
         """Decaying exploration rate"""
-        return max(min_rate, min(1, 1.0 - math.log10((n + 1) / 4)))
+        return max(min_rate, min(1, 1.0 - math.log10((n + 1) / 25)))
