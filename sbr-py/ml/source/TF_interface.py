@@ -11,10 +11,10 @@ from tf_agents.environments import py_environment
 from tf_agents.specs import array_spec
 from tf_agents.trajectories import time_step as ts
 from tf_agents.typing import types
-# import tensorflow as tf
 
 from .robot_interface import RobotInterface
 
+# global parameters used by RobotModel
 episode_time_limit = 5
 raw_tolerance = 0.8  # <-12, -1.5, 8>
 swing_tolerance_limit = 7
@@ -25,11 +25,12 @@ class RobotModel(py_environment.PyEnvironment):
     def __init__(self):
         super().__init__()
         self._robot = RobotInterface()
+        # define action and observation space - not used in Q-learning method
         self._action_spec = array_spec.BoundedArraySpec(shape=(), dtype=np.int8, minimum=0, maximum=4,
                                                         name='action')
         self._observation_spec = array_spec.BoundedArraySpec(shape=(1, 1), dtype=np.int8, minimum=0, maximum=127,
                                                              name='observation')
-        time.sleep(1)
+        time.sleep(1)   # give it some time to get first robot state
         self._robot.setState(np.array([2], np.int8))
         self._episode_timer = time.time()
         self._episode_time_limit = episode_time_limit
@@ -37,11 +38,13 @@ class RobotModel(py_environment.PyEnvironment):
         self._raw_min_range = self._robot.RAW_MIN_RANGE
         self._raw_max_range = self._robot.RAW_MAX_RANGE
 
+        # create discretizer
         self.est = KBinsDiscretizer(n_bins=(NUM_OF_STATES, 6), encode='ordinal', strategy='uniform')
-        lower_bounds = [self._raw_min_range, -5]  # -12
-        upper_bounds = [self._raw_max_range, 5]  # 8
+        lower_bounds = [self._raw_min_range, -5]  # -12, -5
+        upper_bounds = [self._raw_max_range, 5]  # 8, 5
         self.est.fit([lower_bounds, upper_bounds])
 
+        # set discrete values
         self._zero = self._discretizer(self._robot.RAW_ZERO)[0]
         self._state = self._discretizer(*self._robot.getState())
         self._start_time = time.time()
@@ -54,13 +57,15 @@ class RobotModel(py_environment.PyEnvironment):
         # self._robot.setState(np.array([0]))
 
     def observation_spec(self) -> types.NestedArraySpec:
+        """:return: observation spec"""
         return self._observation_spec
 
     def action_spec(self) -> types.NestedArraySpec:
+        """:return: action spec"""
         return self._action_spec
 
     def _discretizer(self, gyro, acc=1):
-        """Convert continues state intro a discrete state"""
+        """Convert continues state into a discrete"""
         return tuple(map(int, self.est.transform([[gyro, acc]])[0]))
 
     def _step(self, action: types.NestedArray) -> ts.TimeStep:
@@ -69,15 +74,18 @@ class RobotModel(py_environment.PyEnvironment):
         last_state = self._state
 
         def swing(x):
+            """:return: absolute swing from vertical"""
             return -abs(x - (NUM_OF_STATES / 2))
 
         if self.done:
             return self.reset()
 
+        # robot did balance for long period of time -> terminate with big reward
         if self._episode_timer - self._start_time >= self._episode_time_limit:
             self.done = True
             return ts.termination(np.array([self._state], dtype=np.int8), reward=100.0)
 
+        # robot fell -> terminate
         if self._upper_swing_tolerance_limit <= self._state[0] \
                 or self._lower_swing_tolerance_limit >= self._state[0]:
             self.done = True
@@ -86,6 +94,8 @@ class RobotModel(py_environment.PyEnvironment):
         print("setState: {}, feedback: angle {}, acc {}".format(action, *self._state))
         self._robot.setState(np.array([action], np.int8))
         time.sleep(self._sleep_interval)
+
+        # get reward
         if self._upper_tolerance >= self._state[0] >= self._lower_tolerance:
             return ts.transition(np.array([self._state], dtype=np.int8),
                                  reward= 7.0 + 3*int(self._episode_timer - self._start_time))
@@ -99,6 +109,7 @@ class RobotModel(py_environment.PyEnvironment):
         self._robot.setState(np.array([2], np.int8))
         # self._state = self._robot.ZERO
         _timer = time.time()
+        # loop till robot is not held vertically
         while True:
             time.sleep(0.1)
             self._state = self._discretizer(*self._robot.getState())
@@ -113,10 +124,12 @@ class RobotModel(py_environment.PyEnvironment):
         return ts.restart(np.array([self._state], dtype=np.int8))
 
     def close_(self):
+        """stop robot's tires and terminate"""
         self._robot.setState(np.array([2], np.int8))
         self._robot.stop()
 
     def fake_reward(self):
+        """Used only as draft method to test rewards"""
         self._episode_timer = time.time()
         last_state = self._state
         self._state = self._discretizer(*self._robot.getState())

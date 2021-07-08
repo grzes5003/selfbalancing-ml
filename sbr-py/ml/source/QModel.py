@@ -3,6 +3,7 @@ import numpy as np
 
 
 class QModel:
+    """Main model used to learn Robot"""
     def __init__(self, n_bins, action_space):
         self.q_table = np.zeros(n_bins + (action_space,))
         print(f'q_table shape {self.q_table.shape}')        # shape = (60, 6, 5)

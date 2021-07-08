@@ -5,6 +5,7 @@ PREFIX = '../ml/tests/tmp/'
 
 # noinspection PyTupleAssignmentBalance
 def test_plot_reward(file_name='16231843_result.npz'):
+    """Plots scores from file_name"""
     with np.load(PREFIX + file_name) as data:
         scores = data['scores']
         x = range(len(scores))
