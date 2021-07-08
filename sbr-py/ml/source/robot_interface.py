@@ -19,10 +19,14 @@ class ConnectionType(Enum):
     WIFI = 2
 
 
-VALUES = {0: -210, 1: -32, 2: 0, 3: 32, 4: 210}
+VALUES = {0: -150, 1: -32, 2: 0, 3: 32, 4: 150}
+VALUES_RANGE = 5
 
 
 class RobotInterface:
+    """
+    Wrapper used as simplified way of interacting with robot
+    """
     def __init__(self):
         parameters = {'port': uart_port, 'speed': uart_speed, 'timeout': 0.01}
         connectivity = 'UART'
@@ -41,6 +45,10 @@ class RobotInterface:
         self._thread.start()
 
     def _update(self):
+        """
+        Updates <self.__last_value> to the most
+        recent value read from robot interface (Connectivity.__class__)
+        """
         while not self._stop_flag:
             msg = self._con.read()
             if msg['type'] == 'MPUdata':
@@ -49,17 +57,29 @@ class RobotInterface:
                               .format(msg['acc_x'], msg['acc_y'], msg['acc_z'], msg['gyro_x'], msg['gyro_y'],
                                       msg['gyro_z']))
                 with self._lock:
-                    self._last_value = msg['acc_y']
+                    self._last_value = (msg['acc_y'], msg['gyro_x'])
 
     def getState(self):
+        """
+        Reads and returns the most recent state
+        :return: value of <self._last_value>
+        """
         with self._lock:
             return self._last_value
 
     def setState(self, vel: np.ndarray):
+        """
+        Change Robot's tires rotation speed
+        :param vel: one value array containing Integer
+         used as dictionary key in <VALUES>
+        """
         if vel[0] not in VALUES:
             print('Bad value')
             return
         self._con.write({'type': 'SetMotors', 'left': VALUES[vel[0]], 'right': -VALUES[vel[0]]})
 
     def stop(self):
+        """
+        Stops self._update
+        """
         self._stop_flag = True

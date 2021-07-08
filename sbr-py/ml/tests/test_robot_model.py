@@ -3,13 +3,15 @@ import time
 from unittest import TestCase
 from unittest.mock import patch, MagicMock
 from ml.source import RobotInterface, RobotModel
+from ml.source.QModel import QModel
 from ml.source.model import ML_Model
 from util.connectivity import Connectivity
 import numpy as np
 from datetime import datetime
-import signal
-import os
-import sys
+
+
+NUM_OF_STATES = 60
+prefix = 'tmp/'
 
 
 class TestRobotInterface(TestCase):
@@ -35,15 +37,134 @@ class TestRobotInterface(TestCase):
 
     @patch('serial.Serial', autospec=True)
     @patch.object(Connectivity, 'write', MagicMock(return_value=-1.45))
-    @patch.object(RobotInterface, 'getState', MagicMock(return_value=-1.45))
+    @patch.object(RobotInterface, 'getState', MagicMock(return_value=-1.46))        # <-8, 1.5, 12> ->  <0, 0.52, 1>
     @patch.object(RobotInterface, '_update', MagicMock(return_value=None))
     def test_model_fit(self, mock_model):
         env = RobotModel()
         ml_model = ML_Model(env.observation_spec().shape,
-                            env.action_spec().num_values)
+                            env.action_spec().num_values, env)
         ml_model.fit(env, nb_steps=50)
         # ml_model.validate(env)
         env.close_()
+
+    @patch('serial.Serial', autospec=True)
+    @patch.object(Connectivity, 'write', MagicMock(return_value=-1.45))
+    @patch.object(RobotInterface, 'getState', MagicMock(return_value=(-1.46, 1.2)))     # <-8, 1.5, 12> ->  <0, 0.52, 1>
+    @patch.object(RobotInterface, '_update', MagicMock(return_value=None))
+    def test_model_qlearn(self, mock_model):
+        env = RobotModel()
+        ml_model = QModel((NUM_OF_STATES, 6), 5)
+        n_episodes = 5
+        for e in range(n_episodes):
+            print("--------------------------")
+            env.reset()
+            current_state, env.done = 6, False
+            score = 0
+
+            while not env.done:
+                action = ml_model.policy(current_state)
+
+                if np.random.random() < ml_model.exploration_rate(e):
+                    action = 2  # TODO random
+
+                obs, reward, done, _ = env.step(action)
+                new_state = obs
+                score += reward
+
+                # Update Q-Table
+                lr = ml_model.learning_rate(e)
+                learnt_value = ml_model.new_q_value(reward, new_state)
+                old_value = ml_model.q_table[current_state][action]
+                ml_model.q_table[current_state][action] = (1 - lr) * old_value + lr * learnt_value
+
+                current_state = new_state
+            print('{} Episode:{} Score:{};'.format(datetime.now(), e+1, score))
+        print(ml_model.q_table)
+        env.close_()
+
+    def test_model_qlearn_real(self):
+        env = RobotModel()
+        ml_model = QModel((NUM_OF_STATES, 6), 5)
+        n_episodes = 140
+        scores = []
+        for e in range(n_episodes):
+            print("--------------------------")
+            env.done = False
+            _, reward, discount, current_state = env.reset()
+            current_state = tuple(current_state.reshape(-1))
+            score = 0
+
+            while not env.done:
+                action = ml_model.policy(current_state)
+
+                if np.random.random() < ml_model.exploration_rate(e):
+                    action = np.random.randint(5)
+
+                _, reward, discount, obs = env.step(action)
+                new_state = tuple(obs.reshape(-1))
+                score += reward
+
+                # Update Q-Table
+                lr = ml_model.learning_rate(e)
+                learnt_value = ml_model.new_q_value(reward, new_state)
+                old_value = ml_model.q_table[current_state][action]
+                ml_model.q_table[current_state][action] = (1 - lr) * old_value + lr * learnt_value
+
+                current_state = new_state
+            print('{} Episode:{} Score:{};'.format(datetime.now(), e + 1, score))
+            scores.append(score)
+        print(ml_model.q_table)
+        print(f"Scores {scores} in {n_episodes} episodes")
+        np.savez(f'tmp/{datetime.now().strftime("%d%H%M%S")}_result.npy', q_table=ml_model.q_table,
+                 scores=np.array(scores, np.int32))
+        env.close_()
+
+    def test_load_qlearn_real(self):
+        file_name = 'tmp/16231037_result.npz'
+        env = RobotModel()
+        ml_model = QModel((NUM_OF_STATES, 6), 5)
+        with np.load(file_name) as data:
+            ml_model.set_q_table(data['q_table'])
+            scores = data['scores'].tolist()
+        n_episodes = 250
+        for e in range(len(scores), n_episodes):
+            print("--------------------------")
+            env.done = False
+            _, reward, discount, current_state = env.reset()
+            current_state = tuple(current_state.reshape(-1))
+            score = 0
+
+            while not env.done:
+                action = ml_model.policy(current_state)
+
+                if np.random.random() < ml_model.exploration_rate(e):
+                    action = np.random.randint(5)
+
+                _, reward, discount, obs = env.step(action)
+                new_state = tuple(obs.reshape(-1))
+                score += reward
+
+                # Update Q-Table
+                lr = ml_model.learning_rate(e)
+                learnt_value = ml_model.new_q_value(reward, new_state)
+                old_value = ml_model.q_table[current_state][action]
+                ml_model.q_table[current_state][action] = (1 - lr) * old_value + lr * learnt_value
+
+                current_state = new_state
+            print('{} Episode:{} Score:{};'.format(datetime.now(), e + 1, score))
+            scores.append(score)
+        print(ml_model.q_table)
+        print(f"Scores {scores} in {n_episodes} episodes")
+        np.savez(f'tmp/{datetime.now().strftime("%d%H%M%S")}_result', q_table=ml_model.q_table,
+                 scores=np.array(scores, np.int32))
+        env.close_()
+
+    def test_reward(self):
+        env = RobotModel()
+        env.done = False
+        while True:
+            obs, reward = env.fake_reward()
+            print(f'{obs[0]}: {reward:>10}')
 
     def test_write_real(self):
         env = RobotModel()
